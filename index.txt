@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang='es'>
+<head>
+  <meta charset='utf-8' />
+  <meta name='viewport' content='width=device-width,initial-scale=1' />
+  <title>Salca Academy - Elite Management 6.7</title>
+  <link href='https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Montserrat:wght@300;400;600&display=swap' rel='stylesheet'>
+  <style>
+    :root {
+      --primary: #0056ff; --accent: #00d4ff; --bg-dark: #050507;
+      --card-bg: rgba(15, 15, 25, 0.8); --text-main: #e0e0e0; --neon-shadow: 0 0 15px rgba(0, 86, 255, 0.4);
+      --danger: #ff4444;
+    }
+    body { font-family: 'Montserrat', sans-serif; background: radial-gradient(circle at top, #0a0a15 0%, #050507 100%); margin: 0; padding: 40px 20px; color: var(--text-main); min-height: 100vh; position: relative; }
+
+    #splash-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #050507; display: flex; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 1s ease, visibility 1s;
+    }
+    .sc-logo {
+      font-family: 'Cinzel', serif; font-size: 8em; color: #fff;
+      text-shadow: 0 0 20px var(--primary), 0 0 40px var(--accent);
+      animation: pulse 2s infinite alternate, scaleUp 1.5s ease-out;
+      letter-spacing: 10px;
+    }
+    @keyframes pulse {
+      from { text-shadow: 0 0 10px var(--primary); opacity: 0.8; }
+      to { text-shadow: 0 0 30px var(--accent), 0 0 50px #fff; opacity: 1; }
+    }
+    @keyframes scaleUp {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .fade-out { opacity: 0; visibility: hidden; }
+
+    .container { max-width: 950px; margin: auto; position: relative; z-index: 1; }
+    .header-brand { text-align: center; margin-bottom: 40px; }
+    .header-brand h1 { font-family: 'Cinzel', serif; letter-spacing: 12px; color: #fff; text-shadow: var(--neon-shadow); margin: 0; }
+    .card { background: var(--card-bg); backdrop-filter: blur(15px); padding: 30px; border-radius: 20px; border: 1px solid rgba(0, 86, 255, 0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px; }
+    input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid #333; padding: 12px; border-radius: 8px; color: #fff; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+    label { display: block; margin: 10px 0 5px; font-size: 0.8em; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+    .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; text-transform: uppercase; font-size: 0.75em; }
+    .btn-main { background: var(--primary); color: #fff; box-shadow: var(--neon-shadow); }
+    .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+    .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-main:hover { background: var(--accent); transform: translateY(-2px); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; color: var(--accent); padding: 15px; font-size: 0.8em; letter-spacing: 2px; }
+    td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; overflow-y: auto; }
+    .modal-content { background: #0a0a0f; border: 1px solid var(--primary); padding: 35px; border-radius: 24px; width: 90%; max-width: 600px; margin: 20px; }
+    .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #222; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  </style>
+</head>
+<body>
+
+<div id='splash-screen'><div class='sc-logo'>SC</div></div>
+
+<div class='container'>
+  <div class='header-brand'>
+    <h1>SALCA</h1>
+    <p style='color:var(--accent); letter-spacing:3px; margin-top:5px;'>FUNDACIÓN Y ESCUELA DE BAILE</p>
+  </div>
+
+  <div class='card' style='display:flex; gap:10px; align-items: center;'>
+    <input type='text' id='fullName' placeholder='Nombre del Alumno'>
+    <input type='text' id='idNumber' placeholder='ID/Cédula'>
+    <button class='btn btn-main' onclick='saveMember()'>Registrar</button>
+  </div>
+
+  <div class='card'><table id='membersTable'><thead><tr><th>BAILARÍN</th><th>ID</th><th>GESTIÓN</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div id='modal' class='modal'><div class='modal-content' id='modalBody'></div></div>
+
+<script>
+  window.addEventListener('load', () => { setTimeout(() => { document.getElementById('splash-screen').classList.add('fade-out'); }, 2500); });
+
+  let db = JSON.parse(localStorage.getItem('salca_full_db')) || [];
+  function saveDB() { localStorage.setItem('salca_full_db', JSON.stringify(db)); }
+
+  const formatLongDate = (dateStr) => {
+    if(!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  function updateTable() {
+    const tbody = document.querySelector('#membersTable tbody');
+    tbody.innerHTML = '';
+    db.forEach((m, i) => {
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td style='font-weight:600;'>${m.fullName}</td>
+          <td style='color:#888;'>${m.idNumber}</td>
+          <td class='actions-cell' style='display:flex; gap:8px;'>
+            <button class='btn btn-main' onclick='openPayments(${i})'>PAGOS</button>
+            <button class='btn btn-outline' onclick='openProfile(${i})'>FICHA</button>
+            <button class='btn btn-danger' onclick='deleteMember(${i})'>✕</button>
+          </td>
+        </tr>`);
+    });
+  }
+
+  window.deleteMember = (i) => { if(confirm(`¿Eliminar a ${db[i].fullName}?`)) { db.splice(i, 1); saveDB(); updateTable(); } };
+
+  window.addNewMonth = (i) => {
+    const hoy = new Date();
+    let mesSig = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 5);
+    db[i].months.push({ mes: 'Mensualidad', estado: 'Pendiente', fechaVence: mesSig.toISOString() });
+    saveDB(); openPayments(i);
+  };
+
+  window.openPayments = (i) => {
+    const m = db[i];
+    let rows = m.months.map((mon, mi) => `<div class='payment-row'><div><b>${mon.mes}</b><br><small style='color:#888;'>Vence: ${formatLongDate(mon.fechaVence)}</small></div><div>${mon.estado === 'Pagado' ? `<span style='color:#34c759; margin-right:10px;'>PAGADO</span><button class='btn' onclick='printReceipt(${i},${mi})'>RECIBO</button>` : `<button class='btn btn-main' onclick='payMonth(${i},${mi})'>PAGAR</button>`}</div></div>`).join('');
+    document.getElementById('modalBody').innerHTML = `<h2 style='font-family:Cinzel; margin:0;'>Pagos: ${m.fullName}</h2><button class='btn btn-main' style='width:100%; margin:20px 0;' onclick='addNewMonth(${i})'>+ AGREGAR MES</button><div style='max-height:300px; overflow-y:auto;'>${rows || 'Sin registros.'}</div><br><button class='btn' style='background:#222; color:#fff;' onclick='closeModal()'>CERRAR</button>`;
+    document.getElementById('modal').style.display = 'flex';
+  };
+
+  window.openProfile = (i) => {
+    const m = db[i];
+    document.getElementById('modalBody').innerHTML = `
+      <h2 style='font-family:Cinzel; margin:0;'>Ficha Técnica</h2>
+      <div style='margin-top:20px; max-height: 450px; overflow-y: auto;'>
+        <div class='grid-2'><div><label>Teléfono:</label><input type='text' id='tel' value='${m.tel||''}'></div><div><label>Nacimiento:</label><input type='date' id='birth' value='${m.birth||''}'></div></div>
+        <div class='grid-2'><div><label>EPS:</label><input type='text' id='eps' value='${m.eps||''}'></div><div><label>Grupo:</label><select id='groupType'><option ${m.groupType==='Baile Social'?'selected':''}>Baile Social</option><option ${m.groupType==='Grupo Competitivo'?'selected':''}>Grupo Competitivo</option></select></div></div>
+        <label>Responsable:</label><input type='text' id='respName' value='${m.respName||''}'>
+        <label>Tel. Responsable:</label><input type='text' id='respTel' value='${m.respTel||''}'>
+        <label>Nivel:</label><select id='level'><option ${m.level==='Básico'?'selected':''}>Básico</option><option ${m.level==='Intermedio'?'selected':''}>Intermedio</option><option ${m.level==='Avanzado'?'selected':''}>Avanzado</option></select>
+        <label>Salud/Observaciones:</label><textarea id='health' rows='3'>${m.health||''}</textarea>
+      </div>
+      <button class='btn btn-main' style='width:100%; margin-top:20px;' onclick='saveProfile(${i})'>GUARDAR</button>
+      <button class='btn' style='background:#222; color:#fff; width:100%; margin-top:10px;' onclick='closeModal()'>CANCELAR</button>`;
+    document.getElementById('modal').style.display = 'flex';
+  };
+
+  window.saveProfile = (i) => {
+    db[i].tel = document.getElementById('tel').value; db[i].birth = document.getElementById('birth').value; db[i].eps = document.getElementById('eps').value; db[i].groupType = document.getElementById('groupType').value;
+    db[i].respName = document.getElementById('respName').value; db[i].respTel = document.getElementById('respTel').value; db[i].health = document.getElementById('health').value; db[i].level = document.getElementById('level').value;
+    saveDB(); closeModal(); alert('Actualizado');
+  };
+
+  window.payMonth = (mi, moni) => { db[mi].months[moni].estado = 'Pagado'; db[mi].months[moni].fechaPago = new Date().toISOString(); saveDB(); openPayments(mi); };
+
+  window.printReceipt = (mi, moni) => {
+    const m = db[mi]; const p = m.months[moni];
+    const win = window.open('', '', 'width=600,height=550');
+    win.document.write("<html><head><style>body { font-family: Montserrat; text-align: center; padding: 20px; color: #333; } .receipt-box { border: 2px solid #000; padding: 25px; min-height: 400px; position: relative; } .title { font-family: Cinzel; font-size: 2.2em; font-weight: bold; margin-bottom: 5px; } .subtitle { letter-spacing: 2px; font-size: 0.8em; margin-bottom: 20px; } .details { text-align: left; margin-top: 30px; line-height: 1.8; font-size: 1.1em; border-top: 1px dashed #ccc; padding-top: 15px; } .bottom-container { display: flex; justify-content: space-between; flex-direction: row-reverse; align-items: flex-end; margin-top: 40px; } .signature-box { width: 160px; height: 60px; border: 1px solid #000; position: relative; } .signature-label { position: absolute; bottom: -20px; width: 100%; font-size: 0.7em; font-weight: bold; text-align: center; } .stamp { border: 2px solid #000; padding: 5px 15px; font-weight: bold; text-transform: uppercase; font-size: 0.8em; }</style></head><body><div class='receipt-box'><div class='title'>SALCA</div><div class='subtitle'>FUNDACIÓN Y ESCUELA DE BAILE</div><div class='details'><b>ALUMNO:</b> " + m.fullName.toUpperCase() + "<br><b>CONCEPTO:</b> PAGO DE MENSUALIDAD<br><b>FECHA DE PAGO:</b> " + formatLongDate(p.fechaPago) + "<br><b>VIGENCIA HASTA:</b> " + formatLongDate(p.fechaVence) + "</div><div class='bottom-container'><div class='signature-box'><div class='signature-label'>FIRMA O SELLO</div></div><div class='stamp'>Comprobante Oficial</div></div></div></body></html>");
+    win.document.close(); setTimeout(() => { win.print(); win.close(); }, 800);
+  };
+
+  function saveMember() {
+    const n = document.getElementById('fullName').value; if(!n) return;
+    db.push({ fullName: n, idNumber: document.getElementById('idNumber').value, months: [], health: '', tel: '', level: 'Básico', groupType: 'Baile Social' });
+    saveDB(); updateTable(); document.getElementById('fullName').value = ''; document.getElementById('idNumber').value = '';
+  }
+  function closeModal() { document.getElementById('modal').style.display = 'none'; }
+  updateTable();
+</script>
+</body>
+</html>
