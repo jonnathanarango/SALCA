@@ -3,7 +3,7 @@
 <head>
   <meta charset='utf-8' />
   <meta name='viewport' content='width=device-width,initial-scale=1' />
-  <title>Salca Academy - Elite Management 6.7</title>
+  <title>Salca Academy - Elite Management</title>
   <link href='https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Montserrat:wght@300;400;600&display=swap' rel='stylesheet'>
   <style>
     :root {
@@ -34,7 +34,7 @@
     }
     .fade-out { opacity: 0; visibility: hidden; }
 
-    .container { max-width: 950px; margin: auto; position: relative; z-index: 1; display: none; /* Oculto por defecto hasta validar Firebase */ }
+    .container { max-width: 950px; margin: auto; position: relative; z-index: 1; display: none; }
     .header-brand { text-align: center; margin-bottom: 40px; }
     .header-brand h1 { font-family: 'Cinzel', serif; letter-spacing: 12px; color: #fff; text-shadow: var(--neon-shadow); margin: 0; }
     .card { background: var(--card-bg); backdrop-filter: blur(15px); padding: 30px; border-radius: 20px; border: 1px solid rgba(0, 86, 255, 0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px; }
@@ -47,7 +47,6 @@
     .btn-danger:hover { background: var(--danger); color: #fff; }
     .btn-main:hover { background: var(--accent); transform: translateY(-2px); }
     
-    /* Utilidades de espaciado */
     .w-100 { width: 100%; }
     .mt-3 { margin-top: 15px; }
     .mb-3 { margin-bottom: 15px; }
@@ -85,7 +84,7 @@
   </div>
 </div>
 
-<!-- PANTALLA 2: PANEL DE ADMINISTRADOR (Tu código original) -->
+<!-- PANTALLA 2: PANEL DE ADMINISTRADOR -->
 <div class='container' id='admin-screen'>
   <div class='top-bar'>
     <div class='user-badge'>BIENVENIDO, ADMINISTRADOR</div>
@@ -124,33 +123,31 @@
   </div>
 </div>
 
-<!-- MODAL ORIGINAL PARA ADMINISTRADOR -->
+<!-- MODAL PARA ADMINISTRADOR -->
 <div id='modal' class='modal'><div class='modal-content' id='modalBody'></div></div>
 
-<!-- LÓGICA DE FIREBASE Y DE LA APLICACIÓN -->
 <script type="module">
-  // 1. IMPORTACIONES DE FIREBASE
+  // 1. IMPORTACIONES COMPLETAS DE FIREBASE
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-  // 2. TU CONFIGURACIÓN DE FIREBASE (¡Reemplaza esto con tus datos!)
- const firebaseConfig = {
-  apiKey: "AIzaSyBgPpCg0-4h5x5Dktfw0xDkbhdeJeQxYt4",
-  authDomain: "salca-2c2b0.firebaseapp.com",
-  projectId: "salca-2c2b0",
-  storageBucket: "salca-2c2b0.firebasestorage.app",
-  messagingSenderId: "114834351748",
-  appId: "1:114834351748:web:09ea47961b5ff0bd8a84d1",
-  measurementId: "G-6BZ87WJXW4"
-};
-
-  // Inicializar Firebase
+  // 2. CONFIGURACIÓN DE FIREBASE
+  const firebaseConfig = {
+    apiKey: "AIzaSyBgPpCg0-4h5x5Dktfw0xDkbhdeJeQxYt4",
+    authDomain: "salca-2c2b0.firebaseapp.com",
+    projectId: "salca-2c2b0",
+    storageBucket: "salca-2c2b0.firebasestorage.app",
+    messagingSenderId: "114834351748",
+    appId: "1:114834351748:web:09ea47961b5ff0bd8a84d1",
+    measurementId: "G-6BZ87WJXW4"
+  };
+  
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const dbFirestore = getFirestore(app);
 
-  // Ocultar pantalla de carga
+  // Quitar pantalla de carga
   setTimeout(() => { document.getElementById('splash-screen').classList.add('fade-out'); }, 2000);
 
   // REFERENCIAS A PANTALLAS
@@ -182,7 +179,6 @@
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // El onAuthStateChanged se encargará de redirigir
     } catch (error) {
       btn.innerText = "Entrar";
       errorText.innerText = "Error: Correo o contraseña incorrectos.";
@@ -202,45 +198,11 @@
   document.getElementById('btnLogoutAdmin').addEventListener('click', logout);
   document.getElementById('btnLogoutDancer').addEventListener('click', logout);
 
-  // 5. OBSERVADOR DE ESTADO (Verifica quién está conectado y qué pantalla mostrar)
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      // El usuario está logueado, buscar su rol en Firestore
-      try {
-        const userDoc = await getDoc(doc(dbFirestore, "usuarios", user.uid));
-        hideAllScreens();
-        
-        if (userDoc.exists()) {
-          const rol = userDoc.data().rol;
-          
-          if (rol === 'admin') {
-            adminScreen.style.display = 'block';
-            updateTable(); // Cargar la tabla local
-          } else {
-            // Si es bailarín o cualquier otro rol
-            dancerScreen.style.display = 'block';
-          }
-        } else {
-          // Si por alguna razón no tiene documento en la base de datos
-          dancerScreen.style.display = 'block'; 
-        }
-      } catch (error) {
-        console.error("Error al obtener el rol:", error);
-      }
-    } else {
-      // No hay usuario logueado
-      hideAllScreens();
-      loginScreen.style.display = 'block';
-    }
-  });
-
 
   // =====================================================================
-  // TU LÓGICA ORIGINAL DE LOCALSTORAGE Y TABLAS (Intacta para el Admin)
+  // NUEVA LÓGICA DE FIRESTORE PARA SINCRONIZACIÓN EN TIEMPO REAL
   // =====================================================================
-  
-  let db = JSON.parse(localStorage.getItem('salca_full_db')) || [];
-  window.saveDB = function() { localStorage.setItem('salca_full_db', JSON.stringify(db)); }
+  let dbCache = []; 
 
   window.formatLongDate = (dateStr) => {
     if(!dateStr) return 'N/A';
@@ -248,10 +210,21 @@
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  window.updateTable = function() {
+  // Escuchar cambios en tiempo real desde Firestore
+  function iniciarEscuchadorEstudiantes() {
+    onSnapshot(collection(dbFirestore, "estudiantes"), (snapshot) => {
+      dbCache = [];
+      snapshot.forEach((docSnap) => {
+        dbCache.push({ idFirebase: docSnap.id, ...docSnap.data() });
+      });
+      renderTable();
+    });
+  }
+
+  window.renderTable = function() {
     const tbody = document.querySelector('#membersTable tbody');
     tbody.innerHTML = '';
-    db.forEach((m, i) => {
+    dbCache.forEach((m, i) => {
       tbody.insertAdjacentHTML('beforeend', `
         <tr>
           <td style='font-weight:600;'>${m.fullName}</td>
@@ -265,24 +238,67 @@
     });
   }
 
-  window.deleteMember = (i) => { if(confirm(`¿Eliminar a ${db[i].fullName}?`)) { db.splice(i, 1); saveDB(); updateTable(); } };
+  window.saveMember = async function() {
+    const n = document.getElementById('fullName').value; 
+    if(!n) return;
+    const idNum = document.getElementById('idNumber').value;
+    
+    try {
+      await addDoc(collection(dbFirestore, "estudiantes"), {
+        fullName: n,
+        idNumber: idNum,
+        months: [],
+        health: '',
+        tel: '',
+        level: 'Básico',
+        groupType: 'Baile Social'
+      });
+      document.getElementById('fullName').value = ''; 
+      document.getElementById('idNumber').value = '';
+    } catch (error) {
+      console.error("Error al registrar estudiante:", error);
+      alert("Hubo un error al guardar en la nube.");
+    }
+  }
 
-  window.addNewMonth = (i) => {
+  window.deleteMember = async (i) => {
+    const m = dbCache[i];
+    if(confirm(`¿Eliminar a ${m.fullName}?`)) {
+      try {
+        await deleteDoc(doc(dbFirestore, "estudiantes", m.idFirebase));
+      } catch (error) {
+        console.error("Error al eliminar:", error);
+      }
+    }
+  };
+
+  window.addNewMonth = async (i) => {
+    const m = dbCache[i];
     const hoy = new Date();
     let mesSig = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 5);
-    db[i].months.push({ mes: 'Mensualidad', estado: 'Pendiente', fechaVence: mesSig.toISOString() });
-    saveDB(); openPayments(i);
+    
+    // Asegurarnos de que el arreglo exista
+    if (!m.months) m.months = [];
+    
+    m.months.push({ mes: 'Mensualidad', estado: 'Pendiente', fechaVence: mesSig.toISOString() });
+    
+    try {
+      await updateDoc(doc(dbFirestore, "estudiantes", m.idFirebase), { months: m.months });
+      openPayments(i);
+    } catch (error) {
+      console.error("Error al agregar mes:", error);
+    }
   };
 
   window.openPayments = (i) => {
-    const m = db[i];
-    let rows = m.months.map((mon, mi) => `<div class='payment-row'><div><b>${mon.mes}</b><br><small style='color:#888;'>Vence: ${formatLongDate(mon.fechaVence)}</small></div><div>${mon.estado === 'Pagado' ? `<span style='color:#34c759; margin-right:10px;'>PAGADO</span><button class='btn' onclick='printReceipt(${i},${mi})'>RECIBO</button>` : `<button class='btn btn-main' onclick='payMonth(${i},${mi})'>PAGAR</button>`}</div></div>`).join('');
+    const m = dbCache[i];
+    let rows = (m.months || []).map((mon, mi) => `<div class='payment-row'><div><b>${mon.mes}</b><br><small style='color:#888;'>Vence: ${formatLongDate(mon.fechaVence)}</small></div><div>${mon.estado === 'Pagado' ? `<span style='color:#34c759; margin-right:10px;'>PAGADO</span><button class='btn' onclick='printReceipt(${i},${mi})'>RECIBO</button>` : `<button class='btn btn-main' onclick='payMonth(${i},${mi})'>PAGAR</button>`}</div></div>`).join('');
     document.getElementById('modalBody').innerHTML = `<h2 style='font-family:Cinzel; margin:0;'>Pagos: ${m.fullName}</h2><button class='btn btn-main' style='width:100%; margin:20px 0;' onclick='addNewMonth(${i})'>+ AGREGAR MES</button><div style='max-height:300px; overflow-y:auto;'>${rows || 'Sin registros.'}</div><br><button class='btn' style='background:#222; color:#fff;' onclick='closeModal()'>CERRAR</button>`;
     document.getElementById('modal').style.display = 'flex';
   };
 
   window.openProfile = (i) => {
-    const m = db[i];
+    const m = dbCache[i];
     document.getElementById('modalBody').innerHTML = `
       <h2 style='font-family:Cinzel; margin:0;'>Ficha Técnica</h2>
       <div style='margin-top:20px; max-height: 450px; overflow-y: auto;'>
@@ -298,28 +314,78 @@
     document.getElementById('modal').style.display = 'flex';
   };
 
-  window.saveProfile = (i) => {
-    db[i].tel = document.getElementById('tel').value; db[i].birth = document.getElementById('birth').value; db[i].eps = document.getElementById('eps').value; db[i].groupType = document.getElementById('groupType').value;
-    db[i].respName = document.getElementById('respName').value; db[i].respTel = document.getElementById('respTel').value; db[i].health = document.getElementById('health').value; db[i].level = document.getElementById('level').value;
-    saveDB(); closeModal(); alert('Actualizado');
+  window.saveProfile = async (i) => {
+    const m = dbCache[i];
+    m.tel = document.getElementById('tel').value; 
+    m.birth = document.getElementById('birth').value; 
+    m.eps = document.getElementById('eps').value; 
+    m.groupType = document.getElementById('groupType').value;
+    m.respName = document.getElementById('respName').value; 
+    m.respTel = document.getElementById('respTel').value; 
+    m.health = document.getElementById('health').value; 
+    m.level = document.getElementById('level').value;
+    
+    try {
+      await updateDoc(doc(dbFirestore, "estudiantes", m.idFirebase), {
+        tel: m.tel, birth: m.birth, eps: m.eps, groupType: m.groupType,
+        respName: m.respName, respTel: m.respTel, health: m.health, level: m.level
+      });
+      closeModal(); 
+      alert('Ficha actualizada en la nube');
+    } catch (error) {
+      console.error("Error al guardar perfil:", error);
+    }
   };
 
-  window.payMonth = (mi, moni) => { db[mi].months[moni].estado = 'Pagado'; db[mi].months[moni].fechaPago = new Date().toISOString(); saveDB(); openPayments(mi); };
+  window.payMonth = async (mi, moni) => { 
+    const m = dbCache[mi];
+    m.months[moni].estado = 'Pagado'; 
+    m.months[moni].fechaPago = new Date().toISOString(); 
+    
+    try {
+      await updateDoc(doc(dbFirestore, "estudiantes", m.idFirebase), { months: m.months });
+      openPayments(mi); 
+    } catch (error) {
+      console.error("Error al pagar mes:", error);
+    }
+  };
 
   window.printReceipt = (mi, moni) => {
-    const m = db[mi]; const p = m.months[moni];
+    const m = dbCache[mi]; const p = m.months[moni];
     const win = window.open('', '', 'width=600,height=550');
     win.document.write("<html><head><style>body { font-family: Montserrat; text-align: center; padding: 20px; color: #333; } .receipt-box { border: 2px solid #000; padding: 25px; min-height: 400px; position: relative; } .title { font-family: Cinzel; font-size: 2.2em; font-weight: bold; margin-bottom: 5px; } .subtitle { letter-spacing: 2px; font-size: 0.8em; margin-bottom: 20px; } .details { text-align: left; margin-top: 30px; line-height: 1.8; font-size: 1.1em; border-top: 1px dashed #ccc; padding-top: 15px; } .bottom-container { display: flex; justify-content: space-between; flex-direction: row-reverse; align-items: flex-end; margin-top: 40px; } .signature-box { width: 160px; height: 60px; border: 1px solid #000; position: relative; } .signature-label { position: absolute; bottom: -20px; width: 100%; font-size: 0.7em; font-weight: bold; text-align: center; } .stamp { border: 2px solid #000; padding: 5px 15px; font-weight: bold; text-transform: uppercase; font-size: 0.8em; }</style></head><body><div class='receipt-box'><div class='title'>SALCA</div><div class='subtitle'>FUNDACIÓN Y ESCUELA DE BAILE</div><div class='details'><b>ALUMNO:</b> " + m.fullName.toUpperCase() + "<br><b>CONCEPTO:</b> PAGO DE MENSUALIDAD<br><b>FECHA DE PAGO:</b> " + formatLongDate(p.fechaPago) + "<br><b>VIGENCIA HASTA:</b> " + formatLongDate(p.fechaVence) + "</div><div class='bottom-container'><div class='signature-box'><div class='signature-label'>FIRMA O SELLO</div></div><div class='stamp'>Comprobante Oficial</div></div></div></body></html>");
     win.document.close(); setTimeout(() => { win.print(); win.close(); }, 800);
   };
 
-  window.saveMember = function() {
-    const n = document.getElementById('fullName').value; if(!n) return;
-    db.push({ fullName: n, idNumber: document.getElementById('idNumber').value, months: [], health: '', tel: '', level: 'Básico', groupType: 'Baile Social' });
-    saveDB(); updateTable(); document.getElementById('fullName').value = ''; document.getElementById('idNumber').value = '';
-  }
-  
   window.closeModal = function() { document.getElementById('modal').style.display = 'none'; }
+
+  // 5. OBSERVADOR DE ESTADO (Verifica quién está conectado y arranca la base de datos)
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      try {
+        const userDoc = await getDoc(doc(dbFirestore, "usuarios", user.uid));
+        hideAllScreens();
+        
+        if (userDoc.exists()) {
+          const rol = userDoc.data().rol;
+          
+          if (rol === 'admin') {
+            adminScreen.style.display = 'block';
+            iniciarEscuchadorEstudiantes(); // <-- Conexión a base de datos
+          } else {
+            dancerScreen.style.display = 'block';
+          }
+        } else {
+          dancerScreen.style.display = 'block'; 
+        }
+      } catch (error) {
+        console.error("Error al obtener el rol:", error);
+      }
+    } else {
+      hideAllScreens();
+      loginScreen.style.display = 'block';
+    }
+  });
 </script>
 </body>
 </html>
