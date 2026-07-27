@@ -201,19 +201,17 @@
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  function iniciarEscuchadorEstudiantes() {
-    // Si ya había un escuchador previo, lo desconectamos para evitar duplicados
-    if (unsubscribeEstudiantes) unsubscribeEstudiantes();
-
-    unsubscribeEstudiantes = onSnapshot(collection(dbFirestore, "estudiantes"), (snapshot) => {
+  async function iniciarEscuchadorEstudiantes() {
+    try {
+      const querySnapshot = await getDocs(collection(dbFirestore, "estudiantes"));
       dbCache = [];
-      snapshot.forEach((docSnap) => {
+      querySnapshot.forEach((docSnap) => {
         dbCache.push({ idFirebase: docSnap.id, ...docSnap.data() });
       });
       renderTable();
-    }, (error) => {
-      console.error("Error en tiempo real (posible permiso denegado):", error);
-    });
+    } catch (error) {
+      console.error("Error al cargar estudiantes:", error);
+    }
   }
 
   window.renderTable = function() {
