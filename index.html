@@ -201,16 +201,20 @@
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  async function iniciarEscuchadorEstudiantes() {
+  // ESTA FUNCIÓN FUE CORREGIDA PARA USAR ONSNAPSHOT EN TIEMPO REAL CORRECTAMENTE:
+  function iniciarEscuchadorEstudiantes() {
     try {
-      const querySnapshot = await getDocs(collection(dbFirestore, "estudiantes"));
-      dbCache = [];
-      querySnapshot.forEach((docSnap) => {
-        dbCache.push({ idFirebase: docSnap.id, ...docSnap.data() });
+      unsubscribeEstudiantes = onSnapshot(collection(dbFirestore, "estudiantes"), (querySnapshot) => {
+        dbCache = [];
+        querySnapshot.forEach((docSnap) => {
+          dbCache.push({ idFirebase: docSnap.id, ...docSnap.data() });
+        });
+        renderTable();
+      }, (error) => {
+        console.error("Error al cargar estudiantes en tiempo real:", error);
       });
-      renderTable();
     } catch (error) {
-      console.error("Error al cargar estudiantes:", error);
+      console.error("Error al iniciar el escuchador de estudiantes:", error);
     }
   }
 
