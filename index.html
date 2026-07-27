@@ -161,5 +161,28 @@
   function closeModal() { document.getElementById('modal').style.display = 'none'; }
   updateTable();
 </script>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBgPpCg0-4h5x5Dktfw0xDkbhdeJeQxYt4",
+  authDomain: "salca-2c2b0.firebaseapp.com",
+  projectId: "salca-2c2b0",
+  storageBucket: "salca-2c2b0.firebasestorage.app",
+  messagingSenderId: "114834351748",
+  appId: "1:114834351748:web:09ea47961b5ff0bd8a84d1"
+};
+
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore(app);
+
+console.log("Firebase conectado correctamente");
+
+</script>
+  
 </body>
 </html>
