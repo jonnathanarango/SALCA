@@ -129,7 +129,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { getFirestore, doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, collection, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBgPpCg0-4h5x5Dktfw0xDkbhdeJeQxYt4",
@@ -193,6 +193,7 @@
   document.getElementById('btnLogoutDancer').addEventListener('click', logout);
 
   let dbCache = []; 
+  let unsubscribeEstudiantes = null; // Para controlar el flujo de escucha en tiempo real
 
   window.formatLongDate = (dateStr) => {
     if(!dateStr) return 'N/A';
@@ -201,17 +202,23 @@
   };
 
   function iniciarEscuchadorEstudiantes() {
-    onSnapshot(collection(dbFirestore, "estudiantes"), (snapshot) => {
+    // Si ya había un escuchador previo, lo desconectamos para evitar duplicados
+    if (unsubscribeEstudiantes) unsubscribeEstudiantes();
+
+    unsubscribeEstudiantes = onSnapshot(collection(dbFirestore, "estudiantes"), (snapshot) => {
       dbCache = [];
       snapshot.forEach((docSnap) => {
         dbCache.push({ idFirebase: docSnap.id, ...docSnap.data() });
       });
       renderTable();
+    }, (error) => {
+      console.error("Error en tiempo real (posible permiso denegado):", error);
     });
   }
 
   window.renderTable = function() {
     const tbody = document.querySelector('#membersTable tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     dbCache.forEach((m, i) => {
       tbody.insertAdjacentHTML('beforeend', `
@@ -246,7 +253,7 @@
       document.getElementById('idNumber').value = '';
     } catch (error) {
       console.error("Error al registrar estudiante:", error);
-      alert("Hubo un error al guardar en la nube.");
+      alert("Hubo un error al guardar en la nube. Verifica tus permisos.");
     }
   }
 
@@ -358,7 +365,7 @@
           
           if (rol === 'admin') {
             adminScreen.style.display = 'block';
-            iniciarEscuchadorEstudiantes(); // <--- ¡AQUÍ ESTABA FALTANDO LLAMAR LA FUNCIÓN!
+            iniciarEscuchadorEstudiantes(); // Activa la sincronización en tiempo real para el Administrador
           } else {
             dancerScreen.style.display = 'block';
           }
@@ -369,6 +376,7 @@
         console.error("Error al obtener el rol:", error);
       }
     } else {
+      if (unsubscribeEstudiantes) unsubscribeEstudiantes(); // Desconecta si cierran sesión
       hideAllScreens();
       loginScreen.style.display = 'block';
     }
