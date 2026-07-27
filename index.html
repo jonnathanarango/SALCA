@@ -127,12 +127,10 @@
 <div id='modal' class='modal'><div class='modal-content' id='modalBody'></div></div>
 
 <script type="module">
-  // 1. IMPORTACIONES COMPLETAS DE FIREBASE
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { getFirestore, doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-  // 2. CONFIGURACIÓN DE FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyBgPpCg0-4h5x5Dktfw0xDkbhdeJeQxYt4",
     authDomain: "salca-2c2b0.firebaseapp.com",
@@ -147,10 +145,8 @@
   const auth = getAuth(app);
   const dbFirestore = getFirestore(app);
 
-  // Quitar pantalla de carga
   setTimeout(() => { document.getElementById('splash-screen').classList.add('fade-out'); }, 2000);
 
-  // REFERENCIAS A PANTALLAS
   const loginScreen = document.getElementById('login-screen');
   const adminScreen = document.getElementById('admin-screen');
   const dancerScreen = document.getElementById('dancer-screen');
@@ -161,7 +157,6 @@
     dancerScreen.style.display = 'none';
   }
 
-  // 3. LÓGICA DE INICIO DE SESIÓN
   document.getElementById('btnLogin').addEventListener('click', async () => {
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
@@ -186,7 +181,6 @@
     }
   });
 
-  // 4. LÓGICA DE CERRAR SESIÓN
   const logout = async () => {
     await signOut(auth);
     hideAllScreens();
@@ -198,10 +192,6 @@
   document.getElementById('btnLogoutAdmin').addEventListener('click', logout);
   document.getElementById('btnLogoutDancer').addEventListener('click', logout);
 
-
-  // =====================================================================
-  // NUEVA LÓGICA DE FIRESTORE PARA SINCRONIZACIÓN EN TIEMPO REAL
-  // =====================================================================
   let dbCache = []; 
 
   window.formatLongDate = (dateStr) => {
@@ -210,7 +200,6 @@
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  // Escuchar cambios en tiempo real desde Firestore
   function iniciarEscuchadorEstudiantes() {
     onSnapshot(collection(dbFirestore, "estudiantes"), (snapshot) => {
       dbCache = [];
@@ -277,7 +266,6 @@
     const hoy = new Date();
     let mesSig = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 5);
     
-    // Asegurarnos de que el arreglo exista
     if (!m.months) m.months = [];
     
     m.months.push({ mes: 'Mensualidad', estado: 'Pendiente', fechaVence: mesSig.toISOString() });
@@ -359,7 +347,6 @@
 
   window.closeModal = function() { document.getElementById('modal').style.display = 'none'; }
 
-  // 5. OBSERVADOR DE ESTADO (Verifica quién está conectado y arranca la base de datos)
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       try {
@@ -371,7 +358,7 @@
           
           if (rol === 'admin') {
             adminScreen.style.display = 'block';
-            iniciarEscuchadorEstudiantes(); // <-- Conexión a base de datos
+            iniciarEscuchadorEstudiantes(); // <--- ¡AQUÍ ESTABA FALTANDO LLAMAR LA FUNCIÓN!
           } else {
             dancerScreen.style.display = 'block';
           }
