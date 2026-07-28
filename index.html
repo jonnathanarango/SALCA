@@ -46,12 +46,12 @@
     .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
     .btn-danger:hover { background: var(--danger); color: #fff; }
     .btn-main:hover { background: var(--accent); transform: translateY(-2px); }
-    
+
     .w-100 { width: 100%; }
     .mt-3 { margin-top: 15px; }
     .mb-3 { margin-bottom: 15px; }
     .text-center { text-align: center; }
-    
+
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; color: var(--accent); padding: 15px; font-size: 0.8em; letter-spacing: 2px; }
     td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -59,7 +59,7 @@
     .modal-content { background: #0a0a0f; border: 1px solid var(--primary); padding: 35px; border-radius: 24px; width: 90%; max-width: 600px; margin: 20px; }
     .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #222; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    
+
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .user-badge { color: var(--accent); font-size: 0.85em; font-weight: 600; letter-spacing: 1px; }
   </style>
@@ -94,6 +94,12 @@
   <div class='header-brand'>
     <h1>SALCA</h1>
     <p style='color:var(--accent); letter-spacing:3px; margin-top:5px;'>FUNDACIÓN Y ESCUELA DE BAILE</p>
+  </div>
+
+  <div class='card' style='max-width: 500px; margin: auto auto 30px auto; display: flex; gap:10px; align-items: center;'>
+    <input type='text' id='searchMemberInput' placeholder='Buscar bailarín por nombre o ID'>
+    <button class='btn btn-main' id='searchMemberBtn'>Buscar</button>
+    <button class='btn btn-outline' id='clearSearchBtn'>Limpiar</button>
   </div>
 
   <div class='card' style='display:flex; gap:10px; align-items: center;'>
@@ -140,7 +146,7 @@
     appId: "1:114834351748:web:09ea47961b5ff0bd8a84d1",
     measurementId: "G-6BZ87WJXW4"
   };
-  
+
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const dbFirestore = getFirestore(app);
@@ -150,6 +156,10 @@
   const loginScreen = document.getElementById('login-screen');
   const adminScreen = document.getElementById('admin-screen');
   const dancerScreen = document.getElementById('dancer-screen');
+
+  const searchMemberInput = document.getElementById('searchMemberInput');
+  const searchMemberBtn = document.getElementById('searchMemberBtn');
+  const clearSearchBtn = document.getElementById('clearSearchBtn');
 
   function hideAllScreens() {
     loginScreen.style.display = 'none';
@@ -192,7 +202,7 @@
   document.getElementById('btnLogoutAdmin').addEventListener('click', logout);
   document.getElementById('btnLogoutDancer').addEventListener('click', logout);
 
-  let dbCache = []; 
+  let dbCache = [];
   let unsubscribeEstudiantes = null; // Para controlar el flujo de escucha en tiempo real
 
   window.formatLongDate = (dateStr) => {
@@ -200,6 +210,11 @@
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   };
+
+  // Helper to find member by idFirebase
+  function findMemberById(id) {
+    return dbCache.find(member => member.idFirebase === id);
+  }
 
   // ESTA FUNCIÓN FUE CORREGIDA PARA USAR ONSNAPSHOT EN TIEMPO REAL CORRECTAMENTE:
   function iniciarEscuchadorEstudiantes() {
@@ -209,7 +224,7 @@
         querySnapshot.forEach((docSnap) => {
           dbCache.push({ idFirebase: docSnap.id, ...docSnap.data() });
         });
-        renderTable();
+        renderTable(); // Call renderTable after dbCache is updated
       }, (error) => {
         console.error("Error al cargar estudiantes en tiempo real:", error);
       });
@@ -222,25 +237,32 @@
     const tbody = document.querySelector('#membersTable tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    dbCache.forEach((m, i) => {
+
+    const searchTerm = searchMemberInput.value.toLowerCase();
+    const filteredMembers = dbCache.filter(m =>
+      (m.fullName && m.fullName.toLowerCase().includes(searchTerm)) ||
+      (m.idNumber && m.idNumber.toLowerCase().includes(searchTerm))
+    );
+
+    filteredMembers.forEach((m) => {
       tbody.insertAdjacentHTML('beforeend', `
         <tr>
           <td style='font-weight:600;'>${m.fullName}</td>
           <td style='color:#888;'>${m.idNumber}</td>
           <td class='actions-cell' style='display:flex; gap:8px;'>
-            <button class='btn btn-main' onclick='openPayments(${i})'>PAGOS</button>
-            <button class='btn btn-outline' onclick='openProfile(${i})'>FICHA</button>
-            <button class='btn btn-danger' onclick='deleteMember(${i})'>✕</button>
+            <button class='btn btn-main' onclick='openPaymentsById("${m.idFirebase}")'>PAGOS</button>
+            <button class='btn btn-outline' onclick='openProfileById("${m.idFirebase}")'>FICHA</button>
+            <button class='btn btn-danger' onclick='deleteMemberById("${m.idFirebase}")'>✕</button>
           </td>
         </tr>`);
     });
   }
 
   window.saveMember = async function() {
-    const n = document.getElementById('fullName').value; 
+    const n = document.getElementById('fullName').value;
     if(!n) return;
     const idNum = document.getElementById('idNumber').value;
-    
+
     try {
       await addDoc(collection(dbFirestore, "estudiantes"), {
         fullName: n,
@@ -251,7 +273,7 @@
         level: 'Básico',
         groupType: 'Baile Social'
       });
-      document.getElementById('fullName').value = ''; 
+      document.getElementById('fullName').value = '';
       document.getElementById('idNumber').value = '';
     } catch (error) {
       console.error("Error al registrar estudiante:", error);
@@ -259,43 +281,46 @@
     }
   }
 
-  window.deleteMember = async (i) => {
-    const m = dbCache[i];
-    if(confirm(`¿Eliminar a ${m.fullName}?`)) {
+  window.deleteMemberById = async (idFirebase) => {
+    const m = findMemberById(idFirebase);
+    if(m && confirm(`¿Eliminar a ${m.fullName}?`)) {
       try {
-        await deleteDoc(doc(dbFirestore, "estudiantes", m.idFirebase));
+        await deleteDoc(doc(dbFirestore, "estudiantes", idFirebase));
       } catch (error) {
         console.error("Error al eliminar:", error);
       }
     }
   };
 
-  window.addNewMonth = async (i) => {
-    const m = dbCache[i];
+  window.addNewMonthById = async (idFirebase) => {
+    const m = findMemberById(idFirebase);
+    if (!m) return;
     const hoy = new Date();
     let mesSig = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 5);
-    
+
     if (!m.months) m.months = [];
-    
+
     m.months.push({ mes: 'Mensualidad', estado: 'Pendiente', fechaVence: mesSig.toISOString() });
-    
+
     try {
-      await updateDoc(doc(dbFirestore, "estudiantes", m.idFirebase), { months: m.months });
-      openPayments(i);
+      await updateDoc(doc(dbFirestore, "estudiantes", idFirebase), { months: m.months });
+      openPaymentsById(idFirebase);
     } catch (error) {
       console.error("Error al agregar mes:", error);
     }
   };
 
-  window.openPayments = (i) => {
-    const m = dbCache[i];
-    let rows = (m.months || []).map((mon, mi) => `<div class='payment-row'><div><b>${mon.mes}</b><br><small style='color:#888;'>Vence: ${formatLongDate(mon.fechaVence)}</small></div><div>${mon.estado === 'Pagado' ? `<span style='color:#34c759; margin-right:10px;'>PAGADO</span><button class='btn' onclick='printReceipt(${i},${mi})'>RECIBO</button>` : `<button class='btn btn-main' onclick='payMonth(${i},${mi})'>PAGAR</button>`}</div></div>`).join('');
-    document.getElementById('modalBody').innerHTML = `<h2 style='font-family:Cinzel; margin:0;'>Pagos: ${m.fullName}</h2><button class='btn btn-main' style='width:100%; margin:20px 0;' onclick='addNewMonth(${i})'>+ AGREGAR MES</button><div style='max-height:300px; overflow-y:auto;'>${rows || 'Sin registros.'}</div><br><button class='btn' style='background:#222; color:#fff;' onclick='closeModal()'>CERRAR</button>`;
+  window.openPaymentsById = (idFirebase) => {
+    const m = findMemberById(idFirebase);
+    if (!m) return;
+    let rows = (m.months || []).map((mon, mi) => `<div class='payment-row'><div><b>${mon.mes}</b><br><small style='color:#888;'>Vence: ${formatLongDate(mon.fechaVence)}</small></div><div>${mon.estado === 'Pagado' ? `<span style='color:#34c759; margin-right:10px;'>PAGADO</span><button class='btn' onclick='printReceiptById("${idFirebase}",${mi})'>RECIBO</button>` : `<button class='btn btn-main' onclick='payMonthById("${idFirebase}",${mi})'>PAGAR</button>`}</div></div>`).join('');
+    document.getElementById('modalBody').innerHTML = `<h2 style='font-family:Cinzel; margin:0;'>Pagos: ${m.fullName}</h2><button class='btn btn-main' style='width:100%; margin:20px 0;' onclick='addNewMonthById("${idFirebase}")'>+ AGREGAR MES</button><div style='max-height:300px; overflow-y:auto;'>${rows || 'Sin registros.'}</div><br><button class='btn' style='background:#222; color:#fff;' onclick='closeModal()'>CERRAR</button>`;
     document.getElementById('modal').style.display = 'flex';
   };
 
-  window.openProfile = (i) => {
-    const m = dbCache[i];
+  window.openProfileById = (idFirebase) => {
+    const m = findMemberById(idFirebase);
+    if (!m) return;
     document.getElementById('modalBody').innerHTML = `
       <h2 style='font-family:Cinzel; margin:0;'>Ficha Técnica</h2>
       <div style='margin-top:20px; max-height: 450px; overflow-y: auto;'>
@@ -306,49 +331,53 @@
         <label>Nivel:</label><select id='level'><option ${m.level==='Básico'?'selected':''}>Básico</option><option ${m.level==='Intermedio'?'selected':''}>Intermedio</option><option ${m.level==='Avanzado'?'selected':''}>Avanzado</option></select>
         <label>Salud/Observaciones:</label><textarea id='health' rows='3'>${m.health||''}</textarea>
       </div>
-      <button class='btn btn-main' style='width:100%; margin-top:20px;' onclick='saveProfile(${i})'>GUARDAR</button>
+      <button class='btn btn-main' style='width:100%; margin-top:20px;' onclick='saveProfileById("${idFirebase}")'>GUARDAR</button>
       <button class='btn' style='background:#222; color:#fff; width:100%; margin-top:10px;' onclick='closeModal()'>CANCELAR</button>`;
     document.getElementById('modal').style.display = 'flex';
   };
 
-  window.saveProfile = async (i) => {
-    const m = dbCache[i];
-    m.tel = document.getElementById('tel').value; 
-    m.birth = document.getElementById('birth').value; 
-    m.eps = document.getElementById('eps').value; 
+  window.saveProfileById = async (idFirebase) => {
+    const m = findMemberById(idFirebase);
+    if (!m) return;
+    m.tel = document.getElementById('tel').value;
+    m.birth = document.getElementById('birth').value;
+    m.eps = document.getElementById('eps').value;
     m.groupType = document.getElementById('groupType').value;
-    m.respName = document.getElementById('respName').value; 
-    m.respTel = document.getElementById('respTel').value; 
-    m.health = document.getElementById('health').value; 
+    m.respName = document.getElementById('respName').value;
+    m.respTel = document.getElementById('respTel').value;
+    m.health = document.getElementById('health').value;
     m.level = document.getElementById('level').value;
-    
+
     try {
-      await updateDoc(doc(dbFirestore, "estudiantes", m.idFirebase), {
+      await updateDoc(doc(dbFirestore, "estudiantes", idFirebase), {
         tel: m.tel, birth: m.birth, eps: m.eps, groupType: m.groupType,
         respName: m.respName, respTel: m.respTel, health: m.health, level: m.level
       });
-      closeModal(); 
+      closeModal();
       alert('Ficha actualizada en la nube');
     } catch (error) {
       console.error("Error al guardar perfil:", error);
     }
   };
 
-  window.payMonth = async (mi, moni) => { 
-    const m = dbCache[mi];
-    m.months[moni].estado = 'Pagado'; 
-    m.months[moni].fechaPago = new Date().toISOString(); 
-    
+  window.payMonthById = async (idFirebase, moni) => {
+    const m = findMemberById(idFirebase);
+    if (!m) return;
+    m.months[moni].estado = 'Pagado';
+    m.months[moni].fechaPago = new Date().toISOString();
+
     try {
-      await updateDoc(doc(dbFirestore, "estudiantes", m.idFirebase), { months: m.months });
-      openPayments(mi); 
+      await updateDoc(doc(dbFirestore, "estudiantes", idFirebase), { months: m.months });
+      openPaymentsById(idFirebase);
     } catch (error) {
       console.error("Error al pagar mes:", error);
     }
   };
 
-  window.printReceipt = (mi, moni) => {
-    const m = dbCache[mi]; const p = m.months[moni];
+  window.printReceiptById = (idFirebase, moni) => {
+    const m = findMemberById(idFirebase);
+    if (!m) return;
+    const p = m.months[moni];
     const win = window.open('', '', 'width=600,height=550');
     win.document.write("<html><head><style>body { font-family: Montserrat; text-align: center; padding: 20px; color: #333; } .receipt-box { border: 2px solid #000; padding: 25px; min-height: 400px; position: relative; } .title { font-family: Cinzel; font-size: 2.2em; font-weight: bold; margin-bottom: 5px; } .subtitle { letter-spacing: 2px; font-size: 0.8em; margin-bottom: 20px; } .details { text-align: left; margin-top: 30px; line-height: 1.8; font-size: 1.1em; border-top: 1px dashed #ccc; padding-top: 15px; } .bottom-container { display: flex; justify-content: space-between; flex-direction: row-reverse; align-items: flex-end; margin-top: 40px; } .signature-box { width: 160px; height: 60px; border: 1px solid #000; position: relative; } .signature-label { position: absolute; bottom: -20px; width: 100%; font-size: 0.7em; font-weight: bold; text-align: center; } .stamp { border: 2px solid #000; padding: 5px 15px; font-weight: bold; text-transform: uppercase; font-size: 0.8em; }</style></head><body><div class='receipt-box'><div class='title'>SALCA</div><div class='subtitle'>FUNDACIÓN Y ESCUELA DE BAILE</div><div class='details'><b>ALUMNO:</b> " + m.fullName.toUpperCase() + "<br><b>CONCEPTO:</b> PAGO DE MENSUALIDAD<br><b>FECHA DE PAGO:</b> " + formatLongDate(p.fechaPago) + "<br><b>VIGENCIA HASTA:</b> " + formatLongDate(p.fechaVence) + "</div><div class='bottom-container'><div class='signature-box'><div class='signature-label'>FIRMA O SELLO</div></div><div class='stamp'>Comprobante Oficial</div></div></div></body></html>");
     win.document.close(); setTimeout(() => { win.print(); win.close(); }, 800);
@@ -356,15 +385,27 @@
 
   window.closeModal = function() { document.getElementById('modal').style.display = 'none'; }
 
+  // Event listeners for search functionality
+  searchMemberBtn.addEventListener('click', renderTable);
+  clearSearchBtn.addEventListener('click', () => {
+    searchMemberInput.value = '';
+    renderTable();
+  });
+  searchMemberInput.addEventListener('keyup', (event) => {
+    if (event.key === 'Enter') {
+      renderTable();
+    }
+  });
+
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       try {
         const userDoc = await getDoc(doc(dbFirestore, "usuarios", user.uid));
         hideAllScreens();
-        
+
         if (userDoc.exists()) {
           const rol = userDoc.data().rol;
-          
+
           if (rol === 'admin') {
             adminScreen.style.display = 'block';
             iniciarEscuchadorEstudiantes(); // Activa la sincronización en tiempo real para el Administrador
@@ -372,7 +413,7 @@
             dancerScreen.style.display = 'block';
           }
         } else {
-          dancerScreen.style.display = 'block'; 
+          dancerScreen.style.display = 'block';
         }
       } catch (error) {
         console.error("Error al obtener el rol:", error);
